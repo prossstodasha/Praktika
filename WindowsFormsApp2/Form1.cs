@@ -60,6 +60,11 @@ namespace WindowsFormsApp2
         private void button2_Click(object sender, EventArgs e)
         {
             pictureBox1.Image = new Bitmap(pictureBox1.Width, pictureBox1.Height);
+            humans.Clear();
+            infectedHumans.Clear();
+            incubationHumans.Clear();
+            recoveredHumans.Clear();
+            deadHumans.Clear();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -210,35 +215,51 @@ namespace WindowsFormsApp2
                     infectedHumans.Add(infectedHuman);
 
                     // Запускаем таймер для окончания заражения через 10000 мс
-                    Timer infectedTimer = new Timer();
-                    infectedTimer.Interval = 10000;
-                    infectedTimer.Tick += (s1, ev1) =>
-                    {
-                        // По истечении времени, заменяем зараженную клетку на выздоровевшую или мертвую
-                        if (rand.Next(1, 101) <= 20)
-                        {
-                            var deadHuman = new DeadHuman(infectedHuman.X, infectedHuman.Y);
-                            infectedHumans.Remove(infectedHuman);
-                            deadHumans.Add(deadHuman);
-                        }
-                        else
-                        {
-                            var recoveredHuman = new RecoveredHuman(infectedHuman.X, infectedHuman.Y);
-                            infectedHumans.Remove(infectedHuman);
-                            recoveredHumans.Add(recoveredHuman);
-                        }
-
-                        infectedTimer.Stop();
-                        infectedTimer.Dispose();
-                    };
-                    infectedTimer.Start();
+                    StartInfectedHumanTimer(infectedHuman);
 
                     incubationTimer.Stop();
                     incubationTimer.Dispose();
                 };
                 incubationTimer.Start();
             }
+
+            // Запускаем таймер для всех текущих зараженных людей (красные клетки), если он еще не запущен
+            foreach (var infected in infectedHumans.ToList())
+            {
+                if (!infected.HasTimerStarted)
+                {
+                    StartInfectedHumanTimer(infected);
+                }
+            }
         }
+
+        private void StartInfectedHumanTimer(InfectedHuman infectedHuman)
+        {
+            infectedHuman.HasTimerStarted = true;
+            Timer infectedTimer = new Timer();
+            infectedTimer.Interval = 10000;
+            infectedTimer.Tick += (s, ev) =>
+            {
+                // По истечении времени, заменяем зараженную клетку на выздоровевшую или мертвую
+                if (rand.Next(1, 101) <= 20)
+                {
+                    var deadHuman = new DeadHuman(infectedHuman.X, infectedHuman.Y);
+                    infectedHumans.Remove(infectedHuman);
+                    deadHumans.Add(deadHuman);
+                }
+                else
+                {
+                    var recoveredHuman = new RecoveredHuman(infectedHuman.X, infectedHuman.Y);
+                    infectedHumans.Remove(infectedHuman);
+                    recoveredHumans.Add(recoveredHuman);
+                }
+
+                infectedTimer.Stop();
+                infectedTimer.Dispose();
+            };
+            infectedTimer.Start();
+        }
+
 
         private void UpdatePictureBox()
         {
@@ -319,10 +340,12 @@ namespace WindowsFormsApp2
 
         public class InfectedHuman : Human
         {
+            public bool HasTimerStarted { get; set; }
+
             public InfectedHuman(int x, int y) : base(x, y)
             {
+                HasTimerStarted = false;
             }
-
             public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
             {
                 // Перемещение на случайную соседнюю клетку
