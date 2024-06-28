@@ -191,86 +191,9 @@ namespace WindowsFormsApp2
             UpdatePictureBox();
         }
 
-        private void CheckInfection()
-        {
-            // Проверка и изменение состояний клеток
-            foreach (var human in humans.ToList())
-            {
-                // Проверяем соседство с красными клетками
-                foreach (var infected in infectedHumans.ToList())
-                {
-                    if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
-                    {
-                        // Заменяем зеленую клетку на оранжевую
-                        var incubationHuman = new IncubationHuman(human.X, human.Y);
-                        incubationHumans.Add(incubationHuman);
-                        humans.Remove(human);
 
-                        // Запускаем таймер для изменения цвета через 10000 мс
-                        Timer incubationTimer = new Timer();
-                        incubationTimer.Interval = 10000;
-                        incubationTimer.Tick += (s, ev) =>
-                        {
-                            // Заменяем оранжевую клетку на красную
-                            var redHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
-                            incubationHumans.Remove(incubationHuman);
-                            infectedHumans.Add(redHuman);
-                            incubationTimer.Stop();
-                            incubationTimer.Dispose();
-                        };
-                        incubationTimer.Start();
 
-                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
-                    }
-                }
 
-                // Проверяем соседство с оранжевыми клетками
-                foreach (var orange in incubationHumans.ToList())
-                {
-                    if (Math.Abs(human.X - orange.X) <= 1 && Math.Abs(human.Y - orange.Y) <= 1)
-                    {
-                        // Заменяем зеленую клетку на оранжевую
-                        var incubationHuman = new IncubationHuman(human.X, human.Y);
-                        incubationHumans.Add(incubationHuman);
-                        humans.Remove(human);
-
-                        // Запускаем таймер для изменения цвета через 10000 мс
-                        Timer incubationTimer = new Timer();
-                        incubationTimer.Interval = 10000;
-                        incubationTimer.Tick += (s, ev) =>
-                        {
-                            // Заменяем оранжевую клетку на красную
-                            var redHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
-                            incubationHumans.Remove(incubationHuman);
-                            infectedHumans.Add(redHuman);
-                            incubationTimer.Stop();
-                            incubationTimer.Dispose();
-                        };
-                        incubationTimer.Start();
-
-                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
-                    }
-                }
-            }
-
-            // Замена состояния зараженных клеток через 10000 мс
-            foreach (var infected in infectedHumans.ToList())
-            {
-                // Запускаем таймер для изменения цвета через 10000 мс
-                Timer infectedTimer = new Timer();
-                infectedTimer.Interval = 10000;
-                infectedTimer.Tick += (s, ev) =>
-                {
-                    // Заменяем оранжевую клетку на красную
-                    var redHuman = new DeadHuman(infected.X, infected.Y);
-                    infectedHumans.Remove(infected);
-                    deadHumans.Add(redHuman);
-                    infectedTimer.Stop();
-                    infectedTimer.Dispose();
-                };
-                infectedTimer.Start();
-            }
-        }
 
         private void UpdatePictureBox()
         {
