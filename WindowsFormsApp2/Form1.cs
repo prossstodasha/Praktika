@@ -191,6 +191,81 @@ namespace WindowsFormsApp2
             UpdatePictureBox();
         }
 
+        private void CheckInfection()
+        {
+            Random rand = new Random();
+
+            // Список для хранения изменений состояния клеток
+            List<Tuple<int, int, Brush>> changes = new List<Tuple<int, int, Brush>>();
+
+            // Проверка и изменение состояний клеток
+            foreach (var infected in infectedHumans.ToList())
+            {
+                // Проверка, была ли уже перекрашена эта клетка в фиолетовую или черную
+                bool alreadyChanged = recoveredHumans.Any(rh => rh.X == infected.X && rh.Y == infected.Y) ||
+                                      deadHumans.Any(dh => dh.X == infected.X && dh.Y == infected.Y);
+
+                if (!alreadyChanged)
+                {
+                    // Генерируем случайное число от 1 до 10
+                    int randomNumber = rand.Next(1, 11);
+
+                    if (randomNumber <= 8)
+                    {
+                        // 80% случаев - клетка становится фиолетовой (выздоровевший)
+                        changes.Add(new Tuple<int, int, Brush>(infected.X, infected.Y, Brushes.Purple));
+                    }
+                    else
+                    {
+                        // 20% случаев - клетка становится черной (мертвый)
+                        changes.Add(new Tuple<int, int, Brush>(infected.X, infected.Y, Brushes.Black));
+                    }
+
+                    // Удаляем зараженную клетку из списка
+                    infectedHumans.Remove(infected);
+                }
+            }
+
+            // Применяем все изменения одновременно
+            foreach (var change in changes)
+            {
+                int x = change.Item1;
+                int y = change.Item2;
+                Brush color = change.Item3;
+
+                if (color == Brushes.Purple)
+                {
+                    recoveredHumans.Add(new RecoveredHuman(x, y));
+                }
+                else if (color == Brushes.Black)
+                {
+                    deadHumans.Add(new DeadHuman(x, y));
+                }
+            }
+
+            // Проверка зеленых клеток с соседством оранжевых клеток
+            foreach (var human in humans.ToList())
+            {
+                bool nearIncubation = false;
+
+                // Проверяем соседство с оранжевыми клетками (инкубация)
+                foreach (var orange in incubationHumans)
+                {
+                    if (Math.Abs(human.X - orange.X) <= 1 && Math.Abs(human.Y - orange.Y) <= 1)
+                    {
+                        nearIncubation = true;
+                        break;
+                    }
+                }
+
+                if (nearIncubation)
+                {
+                    // Заменяем зеленую клетку на оранжевую (инкубация)
+                    incubationHumans.Add(new IncubationHuman(human.X, human.Y));
+                    humans.Remove(human);
+                }
+            }
+        }
 
 
 
