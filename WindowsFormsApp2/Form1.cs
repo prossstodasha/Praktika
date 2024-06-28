@@ -162,7 +162,96 @@ namespace WindowsFormsApp2
             UpdatePictureBox();
         }
 
-       
+        private void CheckInfection()
+        {
+            // Отслеживаем начальное количество каждого состояния
+            int initialInfectedCount = infectedHumans.Count;
+            int initialIncubationCount = incubationHumans.Count;
+            int initialRecoveredCount = recoveredHumans.Count;
+            int initialDeadCount = deadHumans.Count;
+
+            // Обработка заражения от здоровых к инкубации
+            foreach (var human in humans.ToList())
+            {
+                foreach (var infected in infectedHumans)
+                {
+                    if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
+                    {
+                        // Создаем клетку инкубации и заменяем здоровую клетку на нее
+                        var incubationHuman = new IncubationHuman(human.X, human.Y);
+                        incubationHumans.Add(incubationHuman);
+                        humans.Remove(human);
+
+                        // Таймер для превращения инкубационной клетки в зараженную через 10 секунд
+                        Timer incubationToInfectedTimer = new Timer();
+                        incubationToInfectedTimer.Interval = 10000;
+                        incubationToInfectedTimer.Tick += (s, ev) =>
+                        {
+                            var infectedHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
+                            infectedHumans.Add(infectedHuman);
+                            incubationHumans.Remove(incubationHuman);
+
+                            // Проверяем, не превышено ли начальное количество окрашенных клеток
+                            if (infectedHumans.Count > initialInfectedCount ||
+                                incubationHumans.Count > initialIncubationCount)
+                            {
+                                // Возвращаем состояние назад
+                                infectedHumans.Remove(infectedHuman);
+                                incubationHumans.Add(incubationHuman);
+                            }
+
+                            incubationToInfectedTimer.Stop();
+                            incubationToInfectedTimer.Dispose();
+                        };
+                        incubationToInfectedTimer.Start();
+
+                        break; // Выходим из цикла, так как клетка уже превращена
+                    }
+                }
+            }
+
+            // Обработка перехода из зараженности в выздоровление или смерть
+            foreach (var infected in infectedHumans.ToList())
+            {
+                // Таймер для перехода из зараженной клетки
+                Timer infectedTimer = new Timer();
+                infectedTimer.Interval = 10000;
+                infectedTimer.Tick += (s, ev) =>
+                {
+                    Random rnd = new Random();
+                    double chance = rnd.NextDouble();
+
+                    if (chance <= 0.8)
+                    {
+                        var recoveredHuman = new RecoveredHuman(infected.X, infected.Y);
+                        recoveredHumans.Add(recoveredHuman);
+                    }
+                    else
+                    {
+                        var deadHuman = new DeadHuman(infected.X, infected.Y);
+                        deadHumans.Add(deadHuman);
+                    }
+                    infectedHumans.Remove(infected);
+
+                    // Проверяем, не превышено ли начальное количество окрашенных клеток
+                    if (recoveredHumans.Count > initialRecoveredCount ||
+                        deadHumans.Count > initialDeadCount)
+                    {
+                        // Возвращаем состояние назад
+                        if (recoveredHumans.Count > initialRecoveredCount)
+                            recoveredHumans.RemoveAt(recoveredHumans.Count - 1);
+                        if (deadHumans.Count > initialDeadCount)
+                            deadHumans.RemoveAt(deadHumans.Count - 1);
+                        infectedHumans.Add(infected); // Возвращаем состояние зараженности, если нужно
+                    }
+
+                    infectedTimer.Stop();
+                    infectedTimer.Dispose();
+                };
+                infectedTimer.Start();
+            }
+        }
+
 
 
         private void UpdatePictureBox()
