@@ -158,71 +158,87 @@ namespace WindowsFormsApp2
         }
 
         private void CheckInfection()
-{
-    List<Human> newIncubations = new List<Human>();
-
-    foreach (var human in humans.ToList())
-    {
-        bool shouldBecomeIncubation = false;
-
-        foreach (var infected in infectedHumans)
         {
-            // Проверяем, являются ли клетки соседними
-            if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
+            List<Human> newIncubations = new List<Human>();
+
+            // Проверяем обычных людей (зеленые клетки)
+            foreach (var human in humans.ToList())
             {
-                shouldBecomeIncubation = true;
-                break;
+                bool shouldBecomeIncubation = false;
+
+                foreach (var infected in infectedHumans)
+                {
+                    // Проверяем, являются ли клетки соседними
+                    if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
+                    {
+                        shouldBecomeIncubation = true;
+                        break;
+                    }
+                }
+
+                foreach (var incubation in incubationHumans)
+                {
+                    // Проверяем, являются ли клетки соседними
+                    if (Math.Abs(human.X - incubation.X) <= 1 && Math.Abs(human.Y - incubation.Y) <= 1)
+                    {
+                        shouldBecomeIncubation = true;
+                        break;
+                    }
+                }
+
+                if (shouldBecomeIncubation)
+                {
+                    newIncubations.Add(human);
+                }
+            }
+
+            // Преобразуем обычных людей (зеленые клетки) в инкубационные
+            foreach (var human in newIncubations)
+            {
+                var incubationHuman = new IncubationHuman(human.X, human.Y);
+                incubationHumans.Add(incubationHuman);
+                humans.Remove(human);
+
+                // Запускаем таймер для окончания инкубации через 10000 мс
+                Timer incubationTimer = new Timer();
+                incubationTimer.Interval = 10000;
+                incubationTimer.Tick += (s, ev) =>
+                {
+                    // По истечении времени, заменяем инкубационную клетку на красную
+                    var infectedHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
+                    incubationHumans.Remove(incubationHuman);
+                    infectedHumans.Add(infectedHuman);
+
+                    // Запускаем таймер для окончания заражения через 10000 мс
+                    Timer infectedTimer = new Timer();
+                    infectedTimer.Interval = 10000;
+                    infectedTimer.Tick += (s1, ev1) =>
+                    {
+                        // По истечении времени, заменяем зараженную клетку на выздоровевшую или мертвую
+                        if (rand.Next(1, 101) <= 20)
+                        {
+                            var deadHuman = new DeadHuman(infectedHuman.X, infectedHuman.Y);
+                            infectedHumans.Remove(infectedHuman);
+                            deadHumans.Add(deadHuman);
+                        }
+                        else
+                        {
+                            var recoveredHuman = new RecoveredHuman(infectedHuman.X, infectedHuman.Y);
+                            infectedHumans.Remove(infectedHuman);
+                            recoveredHumans.Add(recoveredHuman);
+                        }
+
+                        infectedTimer.Stop();
+                        infectedTimer.Dispose();
+                    };
+                    infectedTimer.Start();
+
+                    incubationTimer.Stop();
+                    incubationTimer.Dispose();
+                };
+                incubationTimer.Start();
             }
         }
-
-        foreach (var incubation in incubationHumans)
-        {
-            // Проверяем, являются ли клетки соседними
-            if (Math.Abs(human.X - incubation.X) <= 1 && Math.Abs(human.Y - incubation.Y) <= 1)
-            {
-                shouldBecomeIncubation = true;
-                break;
-            }
-        }
-
-        if (shouldBecomeIncubation)
-        {
-            newIncubations.Add(human);
-        }
-    }
-
-    foreach (var human in newIncubations)
-    {
-        var incubationHuman = new IncubationHuman(human.X, human.Y);
-        incubationHumans.Add(incubationHuman);
-        humans.Remove(human);
-
-        // Запускаем таймер для окончания инкубации через 10000 мс
-        Timer incubationTimer = new Timer();
-        incubationTimer.Interval = 10000;
-        incubationTimer.Tick += (s, ev) =>
-        {
-            // По истечении времени, заменяем инкубационную клетку на выздоровевшую или мертвую
-            if (rand.Next(1, 101) <= 20)
-            {
-                var deadHuman = new DeadHuman(incubationHuman.X, incubationHuman.Y);
-                incubationHumans.Remove(incubationHuman);
-                deadHumans.Add(deadHuman);
-            }
-            else
-            {
-                var recoveredHuman = new RecoveredHuman(incubationHuman.X, incubationHuman.Y);
-                incubationHumans.Remove(incubationHuman);
-                recoveredHumans.Add(recoveredHuman);
-            }
-
-            incubationTimer.Stop();
-            incubationTimer.Dispose();
-        };
-        incubationTimer.Start();
-    }
-}
-
 
         private void UpdatePictureBox()
         {
