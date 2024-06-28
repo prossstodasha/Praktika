@@ -195,10 +195,37 @@ namespace WindowsFormsApp2
         {
             Random rand = new Random();
 
-            // Список для хранения изменений состояния клеток
-            List<Tuple<int, int, Brush>> changes = new List<Tuple<int, int, Brush>>();
-
             // Проверка и изменение состояний клеток
+            foreach (var human in humans.ToList())
+            {
+                // Проверяем соседство с красными клетками (зараженные)
+                foreach (var infected in infectedHumans.ToList())
+                {
+                    if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
+                    {
+                        // Заменяем зеленую клетку на оранжевую (инкубация)
+                        var incubationHuman = new IncubationHuman(human.X, human.Y);
+                        incubationHumans.Add(incubationHuman);
+                        humans.Remove(human);
+                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
+                    }
+                }
+
+                // Проверяем соседство с оранжевыми клетками (инкубация)
+                foreach (var orange in incubationHumans.ToList())
+                {
+                    if (Math.Abs(human.X - orange.X) <= 1 && Math.Abs(human.Y - orange.Y) <= 1)
+                    {
+                        // Заменяем зеленую клетку на оранжевую (инкубация)
+                        var incubationHuman = new IncubationHuman(human.X, human.Y);
+                        incubationHumans.Add(incubationHuman);
+                        humans.Remove(human);
+                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
+                    }
+                }
+            }
+
+            // Замена состояния зараженных клеток через 10000 мс
             foreach (var infected in infectedHumans.ToList())
             {
                 // Проверка, была ли уже перекрашена эта клетка в фиолетовую или черную
@@ -207,39 +234,41 @@ namespace WindowsFormsApp2
 
                 if (!alreadyChanged)
                 {
-                    // Генерируем случайное число от 1 до 10
-                    int randomNumber = rand.Next(1, 11);
+                    // Запускаем таймер для изменения состояния через 10000 мс
+                    Timer infectedTimer = new Timer();
+                    infectedTimer.Interval = 10000;
 
-                    if (randomNumber <= 8)
+                    infectedTimer.Tick += (s, ev) =>
                     {
-                        // 80% случаев - клетка становится фиолетовой (выздоровевший)
-                        changes.Add(new Tuple<int, int, Brush>(infected.X, infected.Y, Brushes.Purple));
-                    }
-                    else
-                    {
-                        // 20% случаев - клетка становится черной (мертвый)
-                        changes.Add(new Tuple<int, int, Brush>(infected.X, infected.Y, Brushes.Black));
-                    }
+                        // Проверяем снова, т.к. клетка могла измениться в процессе ожидания
+                        bool alreadyPurple = recoveredHumans.Any(rh => rh.X == infected.X && rh.Y == infected.Y);
+                        bool alreadyBlack = deadHumans.Any(dh => dh.X == infected.X && dh.Y == infected.Y);
 
-                    // Удаляем зараженную клетку из списка
-                    infectedHumans.Remove(infected);
-                }
-            }
+                        if (!alreadyPurple && !alreadyBlack)
+                        {
+                            // Генерируем случайное число от 1 до 10
+                            int randomNumber = rand.Next(1, 11);
 
-            // Применяем все изменения одновременно
-            foreach (var change in changes)
-            {
-                int x = change.Item1;
-                int y = change.Item2;
-                Brush color = change.Item3;
+                            if (randomNumber <= 8)
+                            {
+                                // 80% случаев - клетка становится фиолетовой (выздоровевший)
+                                var purpleHuman = new RecoveredHuman(infected.X, infected.Y);
+                                recoveredHumans.Add(purpleHuman);
+                            }
+                            else
+                            {
+                                // 20% случаев - клетка становится черной (мертвый)
+                                var blackHuman = new DeadHuman(infected.X, infected.Y);
+                                deadHumans.Add(blackHuman);
+                            }
+                        }
 
-                if (color == Brushes.Purple)
-                {
-                    recoveredHumans.Add(new RecoveredHuman(x, y));
-                }
-                else if (color == Brushes.Black)
-                {
-                    deadHumans.Add(new DeadHuman(x, y));
+                        infectedHumans.Remove(infected);
+                        infectedTimer.Stop();
+                        infectedTimer.Dispose();
+                    };
+
+                    infectedTimer.Start();
                 }
             }
 
@@ -261,7 +290,8 @@ namespace WindowsFormsApp2
                 if (nearIncubation)
                 {
                     // Заменяем зеленую клетку на оранжевую (инкубация)
-                    incubationHumans.Add(new IncubationHuman(human.X, human.Y));
+                    var incubationHuman = new IncubationHuman(human.X, human.Y);
+                    incubationHumans.Add(incubationHuman);
                     humans.Remove(human);
                 }
             }
