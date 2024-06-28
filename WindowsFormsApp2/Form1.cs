@@ -17,11 +17,13 @@ namespace WindowsFormsApp2
         private List<IncubationHuman> incubationHumans = new List<IncubationHuman>();
         private List<RecoveredHuman> recoveredHumans = new List<RecoveredHuman>();
         private List<DeadHuman> deadHumans = new List<DeadHuman>();
+        private Timer infectedTimer; // объявление таймера
 
         public Form1()
         {
             InitializeComponent();
-
+            // Инициализация таймера для зараженных людей
+            infectedTimer = new Timer();
             // Инициализация таймера
             timer2.Interval = 500; // интервал в миллисекундах
             timer2.Tick += Timer2_Tick;
@@ -60,6 +62,38 @@ namespace WindowsFormsApp2
         private void button2_Click(object sender, EventArgs e)
         {
             pictureBox1.Image = new Bitmap(pictureBox1.Width, pictureBox1.Height);
+            humans.Clear();
+            infectedHumans.Clear();
+            incubationHumans.Clear();
+            recoveredHumans.Clear();
+            deadHumans.Clear();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Инициализация значений для поля
+            nupm.Value = 25; // примерное значение, можете изменить
+            nupn.Value = 25; // примерное значение, можете изменить
+            numericUpDown1.Value = 1; // примерное значение зараженных, можете изменить
+
+            // Установка размеров PictureBox на основе значений m и n
+            pictureBox1.Width = (int)nupm.Value * cellSize;
+            pictureBox1.Height = (int)nupn.Value * cellSize;
+
+            // Создание изображения и отрисовка начального состояния поля
+            Bitmap bmp = new Bitmap(pictureBox1.Width, pictureBox1.Height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                Pen pen = new Pen(Color.Black);
+                for (int i = 0; i < nupm.Value; i++)
+                {
+                    for (int j = 0; j < nupn.Value; j++)
+                    {
+                        g.DrawRectangle(pen, i * cellSize, j * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+            pictureBox1.Image = bmp;
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -157,7 +191,86 @@ namespace WindowsFormsApp2
             UpdatePictureBox();
         }
 
-       
+        private void CheckInfection()
+        {
+            // Проверка и изменение состояний клеток
+            foreach (var human in humans.ToList())
+            {
+                // Проверяем соседство с красными клетками
+                foreach (var infected in infectedHumans.ToList())
+                {
+                    if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
+                    {
+                        // Заменяем зеленую клетку на оранжевую
+                        var incubationHuman = new IncubationHuman(human.X, human.Y);
+                        incubationHumans.Add(incubationHuman);
+                        humans.Remove(human);
+
+                        // Запускаем таймер для изменения цвета через 10000 мс
+                        Timer incubationTimer = new Timer();
+                        incubationTimer.Interval = 10000;
+                        incubationTimer.Tick += (s, ev) =>
+                        {
+                            // Заменяем оранжевую клетку на красную
+                            var redHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
+                            incubationHumans.Remove(incubationHuman);
+                            infectedHumans.Add(redHuman);
+                            incubationTimer.Stop();
+                            incubationTimer.Dispose();
+                        };
+                        incubationTimer.Start();
+
+                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
+                    }
+                }
+
+                // Проверяем соседство с оранжевыми клетками
+                foreach (var orange in incubationHumans.ToList())
+                {
+                    if (Math.Abs(human.X - orange.X) <= 1 && Math.Abs(human.Y - orange.Y) <= 1)
+                    {
+                        // Заменяем зеленую клетку на оранжевую
+                        var incubationHuman = new IncubationHuman(human.X, human.Y);
+                        incubationHumans.Add(incubationHuman);
+                        humans.Remove(human);
+
+                        // Запускаем таймер для изменения цвета через 10000 мс
+                        Timer incubationTimer = new Timer();
+                        incubationTimer.Interval = 10000;
+                        incubationTimer.Tick += (s, ev) =>
+                        {
+                            // Заменяем оранжевую клетку на красную
+                            var redHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
+                            incubationHumans.Remove(incubationHuman);
+                            infectedHumans.Add(redHuman);
+                            incubationTimer.Stop();
+                            incubationTimer.Dispose();
+                        };
+                        incubationTimer.Start();
+
+                        break; // Выходим из цикла, так как клетка уже изменена на оранжевую
+                    }
+                }
+            }
+
+            // Замена состояния зараженных клеток через 10000 мс
+            foreach (var infected in infectedHumans.ToList())
+            {
+                // Запускаем таймер для изменения цвета через 10000 мс
+                Timer infectedTimer = new Timer();
+                infectedTimer.Interval = 10000;
+                infectedTimer.Tick += (s, ev) =>
+                {
+                    // Заменяем оранжевую клетку на красную
+                    var redHuman = new DeadHuman(infected.X, infected.Y);
+                    infectedHumans.Remove(infected);
+                    deadHumans.Add(redHuman);
+                    infectedTimer.Stop();
+                    infectedTimer.Dispose();
+                };
+                infectedTimer.Start();
+            }
+        }
 
         private void UpdatePictureBox()
         {
@@ -165,6 +278,38 @@ namespace WindowsFormsApp2
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 Pen pen = new Pen(Color.Black);
+
+                // Отрисовка зеленых клеток
+                foreach (var human in humans)
+                {
+                    g.FillRectangle(Brushes.Green, human.X * cellSize, human.Y * cellSize, cellSize, cellSize);
+                }
+
+                // Отрисовка красных клеток
+                foreach (var infected in infectedHumans)
+                {
+                    g.FillRectangle(Brushes.Red, infected.X * cellSize, infected.Y * cellSize, cellSize, cellSize);
+                }
+
+                // Отрисовка оранжевых клеток
+                foreach (var incubation in incubationHumans)
+                {
+                    g.FillRectangle(Brushes.Orange, incubation.X * cellSize, incubation.Y * cellSize, cellSize, cellSize);
+                }
+
+                // Отрисовка черных клеток
+                foreach (var dead in deadHumans)
+                {
+                    g.FillRectangle(Brushes.Black, dead.X * cellSize, dead.Y * cellSize, cellSize, cellSize);
+                }
+
+                // Отрисовка фиолетовых клеток
+                foreach (var recovered in recoveredHumans)
+                {
+                    g.FillRectangle(Brushes.Purple, recovered.X * cellSize, recovered.Y * cellSize, cellSize, cellSize);
+                }
+
+                // Рисуем сетку клеток
                 for (int i = 0; i < m; i++)
                 {
                     for (int j = 0; j < n; j++)
@@ -172,162 +317,139 @@ namespace WindowsFormsApp2
                         g.DrawRectangle(pen, i * cellSize, j * cellSize, cellSize, cellSize);
                     }
                 }
-
-                // Рисуем мертвых людей (черные клетки)
-                foreach (var dead in deadHumans)
-                {
-                    g.FillRectangle(Brushes.Black, dead.X * cellSize, dead.Y * cellSize, cellSize, cellSize);
-                }
-
-                // Рисуем выздоровевших людей (фиолетовые клетки)
-                foreach (var recovered in recoveredHumans)
-                {
-                    g.FillRectangle(Brushes.Purple, recovered.X * cellSize, recovered.Y * cellSize, cellSize, cellSize);
-                }
-
-                // Рисуем инкубационные клетки (оранжевые клетки)
-                foreach (var incubation in incubationHumans)
-                {
-                    g.FillRectangle(Brushes.Orange, incubation.X * cellSize, incubation.Y * cellSize, cellSize, cellSize);
-                }
-
-                // Рисуем обычных людей (зеленые клетки)
-                foreach (var human in humans)
-                {
-                    g.FillRectangle(Brushes.Green, human.X * cellSize, human.Y * cellSize, cellSize, cellSize);
-                }
-
-                // Рисуем зараженных людей (красные клетки)
-                foreach (var infected in infectedHumans)
-                {
-                    g.FillRectangle(Brushes.Red, infected.X * cellSize, infected.Y * cellSize, cellSize, cellSize);
-                }
             }
 
             pictureBox1.Image = bmp;
         }
+    }
 
-        public class Human
+    // Классы для клеток людей
+    public class Human
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+
+        public Human(int x, int y)
         {
-            public int X { get; set; }
-            public int Y { get; set; }
-
-            public Human(int x, int y)
-            {
-                X = x;
-                Y = y;
-            }
-
-            public virtual void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
-            {
-                // Перемещение на случайную соседнюю клетку
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                // Убедимся, что новые координаты находятся в пределах границ и клетка свободна
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!humans.Any(h => h.X == newX && h.Y == newY) && !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) && !incubationHumans.Any(i => i.X == newX && i.Y == newY) && !recoveredHumans.Any(r => r.X == newX && r.Y == newY) && !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
+            X = x;
+            Y = y;
         }
 
-        public class InfectedHuman : Human
+        public virtual void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
         {
-            public InfectedHuman(int x, int y) : base(x, y)
+            // Логика перемещения для обычных людей
+            int direction = rand.Next(4);
+            switch (direction)
             {
-            }
-
-            public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
-            {
-                // Перемещение на случайную соседнюю клетку
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                // Убедимся, что новые координаты находятся в пределах границ и клетка свободна
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!humans.Any(h => h.X == newX && h.Y == newY) && !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) && !incubationHumans.Any(i => i.X == newX && i.Y == newY) && !recoveredHumans.Any(r => r.X == newX && r.Y == newY) && !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
+                case 0: // вверх
+                    if (Y > 0) Y--;
+                    break;
+                case 1: // вниз
+                    if (Y < n - 1) Y++;
+                    break;
+                case 2: // влево
+                    if (X > 0) X--;
+                    break;
+                case 3: // вправо
+                    if (X < m - 1) X++;
+                    break;
             }
         }
+    }
 
-        public class IncubationHuman : Human
+    public class InfectedHuman : Human
+    {
+        public InfectedHuman(int x, int y) : base(x, y)
         {
-            public IncubationHuman(int x, int y) : base(x, y)
-            {
-            }
-
-            public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
-            {
-                // Перемещение на случайную соседнюю клетку
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                // Убедимся, что новые координаты находятся в пределах границ и клетка свободна
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!humans.Any(h => h.X == newX && h.Y == newY) && !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) && !incubationHumans.Any(i => i.X == newX && i.Y == newY) && !recoveredHumans.Any(r => r.X == newX && r.Y == newY) && !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
         }
 
-        public class RecoveredHuman : Human
+        public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
         {
-            public RecoveredHuman(int x, int y) : base(x, y)
+            // Логика перемещения для зараженных людей
+            int direction = rand.Next(4);
+            switch (direction)
             {
-            }
-
-            public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
-            {
-                // Перемещение на случайную соседнюю клетку
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                // Убедимся, что новые координаты находятся в пределах границ и клетка свободна
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!humans.Any(h => h.X == newX && h.Y == newY) && !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) && !incubationHumans.Any(i => i.X == newX && i.Y == newY) && !recoveredHumans.Any(r => r.X == newX && r.Y == newY) && !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
+                case 0: // вверх
+                    if (Y > 0) Y--;
+                    break;
+                case 1: // вниз
+                    if (Y < n - 1) Y++;
+                    break;
+                case 2: // влево
+                    if (X > 0) X--;
+                    break;
+                case 3: // вправо
+                    if (X < m - 1) X++;
+                    break;
             }
         }
+    }
 
-        public class DeadHuman : Human
+    public class IncubationHuman : Human
+    {
+        public IncubationHuman(int x, int y) : base(x, y)
         {
-            public DeadHuman(int x, int y) : base(x, y)
-            {
-            }
-
-            public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
-            {
-                // Мертвые люди не двигаются
-            }
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
         {
+            // Логика перемещения для инкубационных людей
+            int direction = rand.Next(4);
+            switch (direction)
+            {
+                case 0: // вверх
+                    if (Y > 0) Y--;
+                    break;
+                case 1: // вниз
+                    if (Y < n - 1) Y++;
+                    break;
+                case 2: // влево
+                    if (X > 0) X--;
+                    break;
+                case 3: // вправо
+                    if (X < m - 1) X++;
+                    break;
+            }
+        }
+    }
 
+    public class RecoveredHuman : Human
+    {
+        public RecoveredHuman(int x, int y) : base(x, y)
+        {
         }
 
-        private void label1_Click(object sender, EventArgs e)
+        public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
         {
+            // Логика перемещения для выздоровевших людей
+            int direction = rand.Next(4);
+            switch (direction)
+            {
+                case 0: // вверх
+                    if (Y > 0) Y--;
+                    break;
+                case 1: // вниз
+                    if (Y < n - 1) Y++;
+                    break;
+                case 2: // влево
+                    if (X > 0) X--;
+                    break;
+                case 3: // вправо
+                    if (X < m - 1) X++;
+                    break;
+            }
+        }
+    }
 
+    public class DeadHuman : Human
+    {
+        public DeadHuman(int x, int y) : base(x, y)
+        {
+        }
+
+        public override void Move(int m, int n, Random rand, List<Human> humans, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveredHumans, List<DeadHuman> deadHumans)
+        {
+            // Логика перемещения для мертвых людей (мертвые люди не перемещаются)
         }
     }
 }
