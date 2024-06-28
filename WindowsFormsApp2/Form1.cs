@@ -60,11 +60,6 @@ namespace WindowsFormsApp2
         private void button2_Click(object sender, EventArgs e)
         {
             pictureBox1.Image = new Bitmap(pictureBox1.Width, pictureBox1.Height);
-            humans.Clear();
-            infectedHumans.Clear();
-            incubationHumans.Clear();
-            recoveredHumans.Clear();
-            deadHumans.Clear();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -164,86 +159,58 @@ namespace WindowsFormsApp2
 
         private void CheckInfection()
         {
-            // Отслеживаем начальное количество каждого состояния
-            int initialInfectedCount = infectedHumans.Count;
-            int initialIncubationCount = incubationHumans.Count;
-            int initialRecoveredCount = recoveredHumans.Count;
-            int initialDeadCount = deadHumans.Count;
-
-            // Обработка заражения от здоровых к инкубации
             foreach (var human in humans.ToList())
             {
                 foreach (var infected in infectedHumans)
                 {
+                    // Проверяем, являются ли клетки соседними
                     if (Math.Abs(human.X - infected.X) <= 1 && Math.Abs(human.Y - infected.Y) <= 1)
                     {
-                        // Создаем клетку инкубации и заменяем здоровую клетку на нее
+                        // Клетки стали соседними, заменяем зеленую клетку на инкубационную
                         var incubationHuman = new IncubationHuman(human.X, human.Y);
                         incubationHumans.Add(incubationHuman);
                         humans.Remove(human);
 
-                        // Таймер для превращения инкубационной клетки в зараженную через 10 секунд
-                        Timer incubationToInfectedTimer = new Timer();
-                        incubationToInfectedTimer.Interval = 10000;
-                        incubationToInfectedTimer.Tick += (s, ev) =>
+                        // Запускаем таймер для окончания инкубации через 10000 мс
+                        Timer incubationTimer = new Timer();
+                        incubationTimer.Interval = 10000;
+                        incubationTimer.Tick += (s, ev) =>
                         {
-                            var infectedHuman = new InfectedHuman(incubationHuman.X, incubationHuman.Y);
-                            infectedHumans.Add(infectedHuman);
-                            incubationHumans.Remove(incubationHuman);
-
-                            // Проверяем, не превышено ли начальное количество окрашенных клеток
-                            if (infectedHumans.Count > initialInfectedCount ||
-                                incubationHumans.Count > initialIncubationCount)
+                            // По истечении времени, заменяем инкубационную клетку на выздоровевшую или мертвую
+                            if (rand.Next(1, 101) <= 20)
                             {
-                                // Возвращаем состояние назад
-                                infectedHumans.Remove(infectedHuman);
-                                incubationHumans.Add(incubationHuman);
+                                var deadHuman = new DeadHuman(incubationHuman.X, incubationHuman.Y);
+                                incubationHumans.Remove(incubationHuman);
+                                deadHumans.Add(deadHuman);
+                            }
+                            else
+                            {
+                                var recoveredHuman = new RecoveredHuman(incubationHuman.X, incubationHuman.Y);
+                                incubationHumans.Remove(incubationHuman);
+                                recoveredHumans.Add(recoveredHuman);
                             }
 
-                            incubationToInfectedTimer.Stop();
-                            incubationToInfectedTimer.Dispose();
+                            incubationTimer.Stop();
+                            incubationTimer.Dispose();
                         };
-                        incubationToInfectedTimer.Start();
+                        incubationTimer.Start();
 
-                        break; // Выходим из цикла, так как клетка уже превращена
+                        break; // Выходим из цикла, так как клетка уже изменена на инкубационную
                     }
                 }
             }
 
-            // Обработка перехода из зараженности в выздоровление или смерть
             foreach (var infected in infectedHumans.ToList())
             {
-                // Таймер для перехода из зараженной клетки
+                // Запускаем таймер для перехода из зараженной клетки в инкубационную через 10000 мс
                 Timer infectedTimer = new Timer();
                 infectedTimer.Interval = 10000;
                 infectedTimer.Tick += (s, ev) =>
                 {
-                    Random rnd = new Random();
-                    double chance = rnd.NextDouble();
-
-                    if (chance <= 0.8)
-                    {
-                        var recoveredHuman = new RecoveredHuman(infected.X, infected.Y);
-                        recoveredHumans.Add(recoveredHuman);
-                    }
-                    else
-                    {
-                        var deadHuman = new DeadHuman(infected.X, infected.Y);
-                        deadHumans.Add(deadHuman);
-                    }
+                    // Заменяем зараженную клетку на инкубационную
+                    var incubationHuman = new IncubationHuman(infected.X, infected.Y);
                     infectedHumans.Remove(infected);
-
-                    // Проверяем, не превышено ли начальное количество окрашенных клеток
-                    if (recoveredHumans.Count > initialRecoveredCount ||
-                        deadHumans.Count > initialDeadCount)
-                    {
-                        // Возвращаем состояние назад
-                        if (recoveredHumans.Count > initialRecoveredCount)
-                            recoveredHumans.RemoveAt(recoveredHumans.Count - 1);
-                        if (deadHumans.Count > initialDeadCount)
-                            deadHumans.RemoveAt(deadHumans.Count - 1);
-                        infectedHumans.Add(infected); // Возвращаем состояние зараженности, если нужно
-                    }
+                    incubationHumans.Add(incubationHuman);
 
                     infectedTimer.Stop();
                     infectedTimer.Dispose();
@@ -251,8 +218,6 @@ namespace WindowsFormsApp2
                 infectedTimer.Start();
             }
         }
-
-
 
         private void UpdatePictureBox()
         {
