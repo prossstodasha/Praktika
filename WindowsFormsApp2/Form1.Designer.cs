@@ -84,7 +84,7 @@ namespace WindowsFormsApp2
             // 
             this.label3.AutoSize = true;
             this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.label3.Location = new System.Drawing.Point(61, 131);
+            this.label3.Location = new System.Drawing.Point(60, 134);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(203, 22);
             this.label3.TabIndex = 7;
@@ -192,9 +192,9 @@ namespace WindowsFormsApp2
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pictureBox1.BackColor = System.Drawing.Color.RosyBrown;
-            this.pictureBox1.Location = new System.Drawing.Point(0, 2);
+            this.pictureBox1.Location = new System.Drawing.Point(3, 2);
             this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(529, 563);
+            this.pictureBox1.Size = new System.Drawing.Size(526, 563);
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             this.pictureBox1.Click += new System.EventHandler(this.pictureBox1_Click);
