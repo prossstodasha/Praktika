@@ -18,6 +18,7 @@ namespace WindowsFormsApp2
         private List<RecoveredHuman> recoveryHumans = new List<RecoveredHuman>();
         private List<DeadHuman> deadHumans = new List<DeadHuman>();
         private int mortalityRate; // Вероятность смерти
+        private int infectionProbability; // Вероятность заражения
 
         public Form1()
         {
@@ -26,40 +27,22 @@ namespace WindowsFormsApp2
             timer2.Tick += Timer2_Tick;
         }
 
-        private void splitContainer1_Panel2_Paint(object sender, PaintEventArgs e) { }
-        private void pictureBox1_Click(object sender, EventArgs e) { }
-        private void nupm_ValueChanged(object sender, EventArgs e) { }
-        private void nupn_ValueChanged(object sender, EventArgs e) { }
-        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        private void Form1_Load(object sender, EventArgs e) { }
+
+        private void numericUpDown2_ValueChanged(object sender, EventArgs e)
         {
-            int initialInfectionCount = (int)numericUpDown1.Value;
-            var allPositions = Enumerable.Range(0, m * n).ToList();
-            var infectionPositions = allPositions.OrderBy(x => rand.Next()).Take(initialInfectionCount).ToList();
-
-            infectedHumans.Clear();
-            foreach (var pos in infectionPositions)
-            {
-                int x = pos % m;
-                int y = pos / m;
-                infectedHumans.Add(new InfectedHuman(x, y, mortalityRate));
-            }
-
-            UpdatePictureBox();
+            mortalityRate = (int)numericUpDown2.Value; // Обновляем вероятность изменения цвета на черный
         }
-        private void splitContainer1_Panel1_Paint(object sender, PaintEventArgs e) { }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void numericUpDown3_ValueChanged(object sender, EventArgs e)
         {
-            pictureBox1.Image = new Bitmap(pictureBox1.Width, pictureBox1.Height);
-            people.Clear();
-            infectedHumans.Clear();
-            recoveryHumans.Clear();
-            deadHumans.Clear();
-            incubationHumans.Clear(); // очищаем список инкубационных клеток
+            infectionProbability = (int)numericUpDown3.Value; // Обновляем вероятность заражения
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
+            button2.Enabled = true;
+            button1.Enabled = false;
             m = (int)nupm.Value; // размер поля по X
             n = (int)nupn.Value; // размер поля по Y
             people.Clear();
@@ -67,6 +50,10 @@ namespace WindowsFormsApp2
             recoveryHumans.Clear();
             deadHumans.Clear();
             incubationHumans.Clear(); // очищаем список инкубационных клеток
+
+            // Остановка и удаление всех таймеров
+            timer2.Stop();
+            timer2.Dispose();
 
             Bitmap bmp = new Bitmap(pictureBox1.Width, pictureBox1.Height);
             using (Graphics g = Graphics.FromImage(bmp))
@@ -84,6 +71,7 @@ namespace WindowsFormsApp2
             int totalCells = m * n;
             int humanCount = totalCells / 4; // четверть клеток зелёные (люди)
             int initialInfectionCount = (int)numericUpDown1.Value; // количество красных клеток
+            int incubationInfectionProbability = (int)numericUpDown4.Value; // вероятность заражения от оранжевых клеток
 
             var allPositions = Enumerable.Range(0, totalCells).ToList();
             var infectionPositions = allPositions.OrderBy(x => rand.Next()).Take(initialInfectionCount).ToList();
@@ -100,12 +88,39 @@ namespace WindowsFormsApp2
             {
                 int x = pos % m;
                 int y = pos / m;
-                people.Add(new Human(x, y));
+                people.Add(new Human(x, y, infectionProbability, incubationInfectionProbability));
             }
 
             pictureBox1.Image = bmp;
             timer2.Start();
         }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            button1.Enabled = true;
+            foreach (var inHuman in incubationHumans)
+            {
+                inHuman.timer.Stop();
+                inHuman.timer.Dispose();
+            }
+            foreach (var inHuman in infectedHumans)
+            {
+                inHuman.timer.Stop();
+                inHuman.timer.Dispose();
+            }
+            pictureBox1.Image = new Bitmap(pictureBox1.Width, pictureBox1.Height);
+            people.Clear();
+            infectedHumans.Clear();
+            recoveryHumans.Clear();
+            deadHumans.Clear();
+            incubationHumans.Clear(); // очищаем список инкубационных клеток
+
+            // Остановка и удаление всех таймеров
+            timer2.Stop();
+            timer2.Dispose();
+
+        }
+
 
         private void Timer2_Tick(object sender, EventArgs e)
         {
@@ -129,14 +144,11 @@ namespace WindowsFormsApp2
                 recovery.Move(m, n, rand, people, infectedHumans, incubationHumans, recoveryHumans, deadHumans);
             }
 
-            foreach (var dead in deadHumans.ToList())
-            {
-                dead.Move(m, n, rand, people, infectedHumans, incubationHumans, recoveryHumans, deadHumans);
-            }
-
+            // Dead humans do not move, so no need to iterate through deadHumans
             CheckInfection();
             UpdatePictureBox();
         }
+
 
         private void CheckInfection()
         {
@@ -145,35 +157,48 @@ namespace WindowsFormsApp2
             foreach (var human in people.ToList())
             {
                 bool shouldBecomeIncubation = false;
+
+                // Проверяем контакт с красными клетками
                 foreach (var infection in infectedHumans)
                 {
                     if (Math.Abs(human.X - infection.X) <= 1 && Math.Abs(human.Y - infection.Y) <= 1)
                     {
                         shouldBecomeIncubation = true;
+                        if (rand.Next(1, 101) <= human.InfectionProbability)
+                        {
+                            newIncubations.Add(human);
+                        }
                         break;
                     }
                 }
-                foreach (var incubation in incubationHumans)
+
+                // Если уже должны стать инкубационной, проверяем контакт с оранжевыми клетками
+                if (!shouldBecomeIncubation)
                 {
-                    if (Math.Abs(human.X - incubation.X) <= 1 && Math.Abs(human.Y - incubation.Y) <= 1)
+                    foreach (var incubation in incubationHumans)
                     {
-                        shouldBecomeIncubation = true;
-                        break;
+                        if (Math.Abs(human.X - incubation.X) <= 1 && Math.Abs(human.Y - incubation.Y) <= 1)
+                        {
+                            shouldBecomeIncubation = true;
+                            if (rand.Next(1, 101) <= human.IncubationInfectionProbability)
+                            {
+                                newIncubations.Add(human);
+                            }
+                            break;
+                        }
                     }
-                }
-                if (shouldBecomeIncubation)
-                {
-                    newIncubations.Add(human);
                 }
             }
 
             foreach (var human in newIncubations)
             {
                 var incubationHuman = new IncubationHuman(human.X, human.Y);
+                
                 incubationHumans.Add(incubationHuman);
                 people.Remove(human);
 
                 Timer incubationTimer = new Timer();
+                incubationHuman.timer = incubationTimer;
                 incubationTimer.Interval = 10000; // 10 seconds for orange cells to turn red
                 incubationTimer.Tick += (s, ev) =>
                 {
@@ -197,10 +222,12 @@ namespace WindowsFormsApp2
             }
         }
 
+
         private void StartInfectedHumanTimer(InfectedHuman infectedHuman)
         {
             infectedHuman.HasTimerStarted = true;
             Timer infectedTimer = new Timer();
+            infectedHuman.timer = infectedTimer;
             infectedTimer.Interval = 10000; // 10 seconds for infected human to either recover or die
             infectedTimer.Tick += (s, ev) =>
             {
@@ -236,14 +263,9 @@ namespace WindowsFormsApp2
                     }
                 }
 
-                foreach (var dead in deadHumans)
+                foreach (var human in people)
                 {
-                    g.FillRectangle(Brushes.Black, dead.X * cellSize, dead.Y * cellSize, cellSize, cellSize);
-                }
-
-                foreach (var recovery in recoveryHumans)
-                {
-                    g.FillRectangle(Brushes.Purple, recovery.X * cellSize, recovery.Y * cellSize, cellSize, cellSize);
+                    g.FillRectangle(Brushes.Green, human.X * cellSize, human.Y * cellSize, cellSize, cellSize);
                 }
 
                 foreach (var incubation in incubationHumans)
@@ -251,149 +273,170 @@ namespace WindowsFormsApp2
                     g.FillRectangle(Brushes.Orange, incubation.X * cellSize, incubation.Y * cellSize, cellSize, cellSize);
                 }
 
-                foreach (var human in people)
-                {
-                    g.FillRectangle(Brushes.Green, human.X * cellSize, human.Y * cellSize, cellSize, cellSize);
-                }
-
                 foreach (var infection in infectedHumans)
                 {
                     g.FillRectangle(Brushes.Red, infection.X * cellSize, infection.Y * cellSize, cellSize, cellSize);
                 }
+
+                foreach (var recovery in recoveryHumans)
+                {
+                    g.FillRectangle(Brushes.Blue, recovery.X * cellSize, recovery.Y * cellSize, cellSize, cellSize);
+                }
+
+                foreach (var dead in deadHumans)
+                {
+                    g.FillRectangle(Brushes.Black, dead.X * cellSize, dead.Y * cellSize, cellSize, cellSize);
+                }
             }
+
             pictureBox1.Image = bmp;
         }
 
-        public class Human
+        private void numericUpDown4_ValueChanged(object sender, EventArgs e)
         {
-            public int X { get; set; }
-            public int Y { get; set; }
 
-            public Human(int x, int y)
-            {
-                X = x;
-                Y = y;
-            }
-
-            public virtual void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
-            {
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!people.Any(h => h.X == newX && h.Y == newY) &&
-                        !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) &&
-                        !incubationHumans.Any(i => i.X == newX && i.Y == newY) &&
-                        !recoveryHumans.Any(r => r.X == newX && r.Y == newY) &&
-                        !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
         }
 
-        public class InfectedHuman : Human
+        private void label5_Click(object sender, EventArgs e)
         {
-            public bool HasTimerStarted { get; set; }
-            public int ColorChangeProbability { get; private set; }
 
-            public InfectedHuman(int x, int y, int mortalityRate) : base(x, y)
-            {
-                HasTimerStarted = false;
-                ColorChangeProbability = mortalityRate; // Вероятность изменения цвета на черный
-            }
-
-            public override void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
-            {
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!people.Any(h => h.X == newX && h.Y == newY) &&
-                        !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) &&
-                        !incubationHumans.Any(i => i.X == newX && i.Y == newY) &&
-                        !recoveryHumans.Any(r => r.X == newX && r.Y == newY) &&
-                        !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
         }
 
-        public class IncubationHuman : Human
-        {
-            public IncubationHuman(int x, int y) : base(x, y) { }
-
-            public override void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
-            {
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!people.Any(h => h.X == newX && h.Y == newY) &&
-                        !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) &&
-                        !incubationHumans.Any(i => i.X == newX && i.Y == newY) &&
-                        !recoveryHumans.Any(r => r.X == newX && r.Y == newY) &&
-                        !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
-        }
-
-        public class RecoveredHuman : Human
-        {
-            public RecoveredHuman(int x, int y) : base(x, y) { }
-
-            public override void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
-            {
-                int newX = X + rand.Next(-1, 2);
-                int newY = Y + rand.Next(-1, 2);
-
-                if (newX >= 0 && newX < m && newY >= 0 && newY < n)
-                {
-                    if (!people.Any(h => h.X == newX && h.Y == newY) &&
-                        !infectedHumans.Any(ih => ih.X == newX && ih.Y == newY) &&
-                        !incubationHumans.Any(i => i.X == newX && i.Y == newY) &&
-                        !recoveryHumans.Any(r => r.X == newX && r.Y == newY) &&
-                        !deadHumans.Any(d => d.X == newX && d.Y == newY))
-                    {
-                        X = newX;
-                        Y = newY;
-                    }
-                }
-            }
-        }
-
-        public class DeadHuman : Human
-        {
-            public DeadHuman(int x, int y) : base(x, y) { }
-
-            public override void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
-            {
-                // Мертвые люди не двигаются
-            }
-        }
-
-        private void Form1_Load(object sender, EventArgs e) { }
-        private void label1_Click(object sender, EventArgs e) { }
-        private void numericUpDown2_ValueChanged(object sender, EventArgs e)
-        {
-            mortalityRate = (int)numericUpDown2.Value; // Обновляем вероятность изменения цвета на черный
-        }
-
-        private void label3_Click(object sender, EventArgs e)
+        private void pictureBox1_Click(object sender, EventArgs e)
         {
 
         }
     }
+
+    public class Human
+    {
+        public int X { get; private set; }
+        public int Y { get; private set; }
+        public int InfectionProbability { get; private set; } // Вероятность заражения от красных клеток
+        public int IncubationInfectionProbability { get; private set; } // Вероятность заражения от оранжевых клеток
+
+        public Human(int x, int y, int infectionProbability, int incubationInfectionProbability)
+        {
+            X = x;
+            Y = y;
+            InfectionProbability = infectionProbability;
+            IncubationInfectionProbability = incubationInfectionProbability;
+        }
+
+        public void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
+        {
+            int newX = X + (rand.Next(3) - 1); // -1, 0 или 1
+            int newY = Y + (rand.Next(3) - 1); // -1, 0 или 1
+
+            // Обновляем координаты, если новые координаты в пределах поля
+            if (newX >= 0 && newX < m && newY >= 0 && newY < n)
+            {
+                X = newX;
+                Y = newY;
+            }
+        }
+    }
+
+
+    public class InfectedHuman
+    {
+        public int X { get; private set; }
+        public int Y { get; private set; }
+        public int ColorChangeProbability { get; private set; } // Вероятность изменения цвета
+        public bool HasTimerStarted { get; set; }
+
+        public Timer timer;
+
+        public InfectedHuman(int x, int y, int mortalityRate)
+        {
+            X = x;
+            Y = y;
+            ColorChangeProbability = mortalityRate;
+            HasTimerStarted = false;
+        }
+
+        public void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
+        {
+            int newX = X + (rand.Next(3) - 1); // -1, 0 или 1
+            int newY = Y + (rand.Next(3) - 1); // -1, 0 или 1
+
+            // Обновляем координаты, если новые координаты в пределах поля
+            if (newX >= 0 && newX < m && newY >= 0 && newY < n)
+            {
+                X = newX;
+                Y = newY;
+            }
+        }
+    }
+
+    public class IncubationHuman
+    {
+        public int X { get; private set; }
+        public int Y { get; private set; }
+
+        public Timer timer;
+
+        public IncubationHuman(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
+        {
+            int newX = X + (rand.Next(3) - 1); // -1, 0 или 1
+            int newY = Y + (rand.Next(3) - 1); // -1, 0 или 1
+
+            // Обновляем координаты, если новые координаты в пределах поля
+            if (newX >= 0 && newX < m && newY >= 0 && newY < n)
+            {
+                X = newX;
+                Y = newY;
+            }
+        }
+    }
+
+    public class RecoveredHuman
+    {
+        public int X { get; private set; }
+        public int Y { get; private set; }
+
+        public RecoveredHuman(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
+        {
+            int newX = X + (rand.Next(3) - 1); // -1, 0 или 1
+            int newY = Y + (rand.Next(3) - 1); // -1, 0 или 1
+
+            // Обновляем координаты, если новые координаты в пределах поля
+            if (newX >= 0 && newX < m && newY >= 0 && newY < n)
+            {
+                X = newX;
+                Y = newY;
+            }
+        }
+    }
+
+    public class DeadHuman
+    {
+        public int X { get; private set; }
+        public int Y { get; private set; }
+
+        public DeadHuman(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        // Dead humans do not move, so the Move method does nothing
+        public void Move(int m, int n, Random rand, List<Human> people, List<InfectedHuman> infectedHumans, List<IncubationHuman> incubationHumans, List<RecoveredHuman> recoveryHumans, List<DeadHuman> deadHumans)
+        {
+            // Dead humans do not move, so leave this method empty
+        }
+    }
+
 }
